@@ -1,0 +1,40 @@
+import sys
+from awsglue.utils import getResolvedOptions
+from pyspark.context import SparkContext
+from awsglue.context import GlueContext
+from awsglue.job import Job
+from pyspark.sql import SparkSession
+
+## @params: [JOB_NAME]
+args = getResolvedOptions(sys.argv, ['JOB_NAME'])
+
+# Initialize Spark session and Glue context
+spark = SparkSession.builder.config('spark.serializer', 'org.apache.spark.serializer.KryoSerializer').getOrCreate()
+glueContext = GlueContext(SparkContext.getOrCreate())
+job = Job(glueContext)
+job.init(args['JOB_NAME'], args)
+
+# MySQL JDBC properties for Prism DB (source)
+prism_jdbc_url = "jdbc:mysql://172.31.38.139:3306/bizdb"
+prism_properties = {
+    "user": "DevMySqlUser",
+    "password": "YsBRwgYSa5sHYz6p",
+    "driver": "com.mysql.cj.jdbc.Driver"
+}
+
+# Read data from Prism DB (specify schema and table name correctly)
+source_dataframe = spark.read.jdbc(url=prism_jdbc_url, table="fund_transactions", properties=prism_properties)
+
+# MySQL JDBC properties for Riddhi DB (target)
+riddhi_jdbc_url = "jdbc:mysql://172.31.38.139:3306/dev_shoonya_riddhi"
+riddhi_properties = {
+    "user": "dev_shoonya_riddhi",
+    "password": "zENZdAlOUuGAg8gKLJSGFbfbg",
+    "driver": "com.mysql.cj.jdbc.Driver"
+}
+
+# Write data to Riddhi DB
+source_dataframe.write.jdbc(url=riddhi_jdbc_url, table="fund_transactions", mode="append", properties=riddhi_properties)
+
+# Commit the job
+job.commit()
